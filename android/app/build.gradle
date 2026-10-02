@@ -1,0 +1,117 @@
+apply plugin: 'com.android.application'
+
+/*
+ * 发布签名。
+ *
+ * 口令放在 android/keystore.properties（不提交真实口令到版本库）。
+ * 这个文件**不存在时构建依然要能跑通**（走未签名的 release 或直接用 debug），
+ * 否则任何人 clone 下来都会因为缺一个本地文件而构建失败。
+ */
+def keystorePropsFile = rootProject.file("keystore.properties")
+def hasKeystore = keystorePropsFile.exists()
+def keystoreProps = new Properties()
+if (hasKeystore) {
+    keystoreProps.load(new FileInputStream(keystorePropsFile))
+}
+
+android {
+    namespace = "com.mindfold.app"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.mindfold.app"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        /*
+         * 版本号。
+         *   1.1 / 2 —— 「手机端适配」那一轮（横屏「更多」面板可滚动、提示条避开
+         *              手势条与底栏、原生壳里导出会明确说明、打印视图 viewport）。
+         *   1.2 / 3 —— 「节点外形」这一轮：折角流程图 13 种外形 + 顶部形状下拉框，
+         *              外加折角弹窗顶栏在窄屏不再被挤爆。
+         *   1.3 / 4 —— 「滚轮与双屏」这一轮：三个视图（主画布 / 折角预览 / 打印
+         *              预览页）统一成「滚轮即缩放、拖拽平移」，折角弹窗新增
+         *              「收起编辑区」让预览独占全宽，打印预览页补上缩放。
+         *   1.4 / 5 —— 「手机端手感」这一轮：手机端折角弹窗重排（分段控件不再被
+         *              压成竖排、顶栏不再溢出、✕ 关得掉）、底部只留
+         *              撤销/重做/回到中点（放大缩小与「指向」按钮删除，
+         *              能力改走长按菜单）、思维导图把「文档标签」和「大纲树」
+         *              拆成右上角 / 左上角两个独立入口（手机端主题切换由此恢复可达）。
+         *   1.5 / 6 —— 「格式与顶栏」这一轮：多格式导入导出（新增 OPML /
+         *              FreeMind · mm / 单文档 JSON 三种导出，导入按**内容**认
+         *              Markdown / 纯文本大纲 / OPML / FreeMind / HTML / JSON，
+         *              导出→再导入五种格式都做往返验收；离线 HTML 内嵌可回导
+         *              的 JSON 载荷），以及手机端顶部文档标签面板从三行压成
+         *              和电脑端一样的一行（52px）。另外修掉一个
+         *              「关一个浮层 + 开另一个浮层」导致 history 漂一格、
+         *              下一次返回键把整个应用退走的 bug。
+         *   1.6 / 7 —— 「主题搬进左侧栏」这一轮：主题三色块从顶部标签面板
+         *              **删掉**，改挂到左侧栏头部（桌面在「常显大纲」图钉左边、
+         *              手机在抽屉头那颗 ✕ 左边），并**并进那一行**而不是另立
+         *              一条底栏 —— 桌面 / 手机各让出 36 / 52px 的内容高度。
+         *              1.5 的包是在这次搬家**之前**构建的（源码 23:18 改、
+         *              dist 21:43 构建），所以升级前手机上顶部还挂着三颗色块；
+         *              这一版把包重打，并加了一条「反向指纹」断言防止再发生。
+         * 递增 versionCode 才能盖着旧版安装 —— 同版本号虽然也装得上，
+         * 但用户在「应用信息」里分不出新旧。
+         */
+        versionCode 7
+        versionName "1.6"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        release {
+            if (hasKeystore) {
+                storeFile rootProject.file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        release {
+            // 刻意**不开** minify / shrinkResources。
+            // Capacitor 的 WebView 桥依赖反射，开了 R8 有静默破坏运行时的风险，
+            // 而本机没有模拟器可以验证 —— 不能验证的优化就不做。
+            // 代价只是 APK 大 1~2MB。
+            minifyEnabled false
+            if (hasKeystore) {
+                signingConfig signingConfigs.release
+            }
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

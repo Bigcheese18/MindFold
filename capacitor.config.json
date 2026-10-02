@@ -1,0 +1,12 @@
+{
+  "appId": "com.mindfold.app",
+  "appName": "MindFold",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#ffffff"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

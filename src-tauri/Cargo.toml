@@ -1,0 +1,27 @@
+[package]
+name = "mindfold"
+version = "0.1.0"
+description = "MindFold - 极简折角导图（纯本地 / 离线 / 无 AI）"
+authors = ["MindFold"]
+edition = "2021"
+# Tauri 2 要求 rust-version 至少 1.77；本机是 1.97
+rust-version = "1.77"
+
+[lib]
+# 桌面端不需要 cdylib，但保留 Tauri 模板的结构，方便以后加移动端
+name = "mindfold_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[profile.release]
+# 体积优先：这是个纯前端应用，Rust 侧只有几十行胶水代码
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

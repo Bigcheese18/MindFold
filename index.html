@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      viewport-fit=cover：让页面铺到刘海/挖孔屏的整个屏幕。
+      Android 15（API 35）起，targetSdk>=35 的应用**强制 edge-to-edge**，
+      WebView 会一直铺到系统手势条底下 —— 不加这个，底部工具栏会被手势条压住。
+      铺满之后由 CSS 的 env(safe-area-inset-*) 把内容推回安全区（见 index.css）。
+      在普通浏览器里这些 inset 是 0，所以桌面端和手机浏览器都不受影响。
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>MindFold</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

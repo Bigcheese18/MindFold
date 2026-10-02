@@ -1,0 +1,338 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   三种主题 —— 通过 CSS 变量切换，组件只引用语义色名（tailwind.config.js）
+   纯白 / 浅米黄（护眼）/ 深灰（夜间）
+   ========================================================================== */
+
+:root,
+[data-theme='white'] {
+  --mf-canvas: #ffffff;
+  --mf-panel: #ffffff;
+  --mf-edge: #e8e8ea;      /* 极浅灰柔和曲线 */
+  --mf-ink: #1f2328;
+  --mf-muted: #6b7280;
+  --mf-faint: #f4f5f7;
+  --mf-accent: #3b82f6;
+  --mf-hairline: #eceef1;
+  --mf-guide: #e3e6ea;      /* 缩进参考线：极浅虚线 */
+  --mf-band: #fafbfc;       /* 同级分组的极浅底色 */
+  --mf-hover: #eef2f7;      /* 行悬停底色 */
+  --mf-grid: transparent;
+}
+
+[data-theme='sepia'] {
+  --mf-canvas: #fdf9f0;    /* 护眼米黄 */
+  --mf-panel: #fdfbf5;
+  --mf-edge: #c9a97a;      /* 关键：暖褐色曲线，防止在米黄底上隐形 */
+  --mf-ink: #4a3b2a;
+  --mf-muted: #8a7a63;
+  --mf-faint: #f5eddd;
+  --mf-accent: #b08d57;
+  --mf-hairline: #ece0c9;
+  --mf-guide: #e6d8bd;
+  --mf-band: #fbf6ea;
+  --mf-hover: #f3ead6;
+  --mf-grid: transparent;
+}
+
+[data-theme='dark'] {
+  --mf-canvas: #111318;
+  --mf-panel: #171a21;
+  --mf-edge: #333a47;
+  --mf-ink: #e5e7eb;
+  --mf-muted: #9aa3b2;
+  --mf-faint: #1f232b;
+  --mf-accent: #60a5fa;
+  --mf-hairline: #262c37;
+  --mf-guide: #2b323d;
+  --mf-band: #1a1e26;
+  --mf-hover: #232936;
+  --mf-grid: transparent;
+}
+
+* { -webkit-tap-highlight-color: transparent; }
+
+/*
+  安全区（刘海 / 挖孔 / 手势条）
+  ------------------------------
+  index.html 里开了 viewport-fit=cover，页面会铺满整个屏幕；被系统 UI 遮住的
+  部分要靠这几个变量推回来。普通浏览器里 env() 取不到值，回退到 0px，
+  所以桌面端和手机浏览器完全不受影响。
+
+  为什么必须有：Android 15 起 targetSdk>=35 的应用强制 edge-to-edge，
+  底部工具栏（fixed + bottom-3）会正好落在手势条底下，点不到。
+*/
+:root {
+  --mf-safe-t: env(safe-area-inset-top, 0px);
+  --mf-safe-b: env(safe-area-inset-bottom, 0px);
+  --mf-safe-l: env(safe-area-inset-left, 0px);
+  --mf-safe-r: env(safe-area-inset-right, 0px);
+  /* 贴底元素的统一位置：12px 视觉留白 + 系统手势条高度 */
+  --mf-bottom-gap: calc(12px + var(--mf-safe-b));
+  /* 贴顶元素同理：状态栏高度也要让开（见下面 .mf-safe-top 的注释） */
+  --mf-top-gap: calc(12px + var(--mf-safe-t));
+}
+
+/* 贴底 / 贴边的浮动 UI 统一用这几个类，避免每处各写一遍 calc */
+.mf-fixed-bottom { bottom: var(--mf-bottom-gap); }
+.mf-fixed-top { top: var(--mf-top-gap); }
+.mf-fixed-left { left: calc(12px + var(--mf-safe-l)); }
+.mf-fixed-right { right: calc(12px + var(--mf-safe-r)); }
+
+/* ==========================================================================
+   顶部安全区：状态栏 / 刘海
+   --------------------------------------------------------------------------
+   底部早就有了（--mf-safe-b），顶部一直漏着 —— 因为**状态栏是悬浮在页面
+   之上的**：edge-to-edge 下 WebView 铺到 y=0，而状态栏（时间、电量、信号）
+   占掉上面 24~48px。实测手机视口 390×844（安全区上 47 / 下 34）时：
+     · 顶部标签栏（fixed top-0，高 36）整条压在状态栏底下，第一行字被时间盖住
+     · 左侧大纲抽屉的「MindFold」标题行、折角弹窗的顶栏、「退出复习」按钮
+       全都在状态栏里
+     · 画布里「请点击要指向的节点」提示条贴着 y=12，正好在状态栏中间
+   所以：**浮动的小元件**用 --mf-top-gap 整体下移；
+       **铺满全屏的面板**用 .mf-safe-top 只把内容压下来 —— 面板自己的背景
+       仍然铺到屏幕最顶上（否则状态栏后面会露出画布，很脏）。
+   ========================================================================== */
+.mf-safe-top { padding-top: var(--mf-safe-t); }
+
+/* ==========================================================================
+   手机端「更多」面板：横屏 / 矮视口下必须能滚动
+   --------------------------------------------------------------------------
+   面板是 `bottom:100%` 贴着底栏向上长的，内容固定 384px 高。竖屏够用，
+   但**横屏装不下**：实测 iPhone SE 横屏（667×375）面板 top = -69px，
+   「卡片复习」整条被顶到屏幕外；740×320 时首两条都不可达 ——
+   而它是 `overflow-hidden` + 没有 max-height，滚也滚不到。
+   夹一个 max-height 再开纵向滚动，条目就都够得着了。
+   先写 vh 兜底，再写 dvh（移动端地址栏会伸缩，dvh 才是真实可视高度）。
+   ========================================================================== */
+.mf-more-sheet {
+  max-height: 70vh;
+  max-height: 70dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* 面板滚到底不要把画布一起带动 */
+  overscroll-behavior: contain;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--mf-canvas);
+  color: var(--mf-ink);
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  overflow: hidden;
+  /* 极简工具不应该有文本选中产生的蓝色块 */
+  user-select: none;
+}
+
+/* 输入框里必须允许选中 */
+input, textarea, [contenteditable='true'] { user-select: text; }
+
+/* 细滚动条，避免破坏留白 */
+.mf-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.mf-scroll::-webkit-scrollbar-track { background: transparent; }
+.mf-scroll::-webkit-scrollbar-thumb {
+  background: var(--mf-hairline);
+  border-radius: 8px;
+}
+.mf-scroll::-webkit-scrollbar-thumb:hover { background: var(--mf-muted); }
+
+/* ==========================================================================
+   折角角标 (Fold Badge)
+   --------------------------------------------------------------------------
+   角标本身全部由 Tailwind 在 FoldCorner.jsx 里描述（圆形 / 尺寸 / 配色 /
+   24×24 热区），这里不再保留任何三角形、虚线框之类的旧样式。
+   只留下雷达复习模式的画布级效果。
+   ========================================================================== */
+
+/* 雷达复习模式：画布变暗，只有折角节点高亮 */
+.mf-radar .mf-node { opacity: .13; filter: blur(.4px); }
+.mf-radar .mf-node.has-fold {
+  opacity: 1;
+  filter: none;
+  z-index: 5;
+}
+.mf-radar .mf-edge { opacity: .12; }
+
+/* ==========================================================================
+   拖拽反馈
+   --------------------------------------------------------------------------
+   落位时让节点平滑「吸附」过去（0.2s），而不是瞬间闪一下。
+   只过渡 left/top：画布平移缩放走的是父层 transform，不会被这条规则影响。
+   ========================================================================== */
+.mf-node {
+  transition: left .2s cubic-bezier(.22, .9, .3, 1),
+              top .2s cubic-bezier(.22, .9, .3, 1),
+              opacity .15s ease,
+              border-color .15s ease,
+              box-shadow .15s ease;
+}
+/* 拖拽中不要过渡 opacity，否则幽灵出现/消失会拖沓 */
+.mf-node[data-dragging='true'] { transition: left .2s cubic-bezier(.22, .9, .3, 1), top .2s cubic-bezier(.22, .9, .3, 1); }
+
+/* 折角角标：可点，所以用手型而不是抓手 */
+[data-fold-badge] { cursor: pointer; }
+
+/* ==========================================================================
+   右侧流程图：单击选中 / 悬停联动
+   这些 class 由 FoldModal 在 mermaid 每次重绘后重新贴上去。
+   ========================================================================== */
+
+/* 单击选中：实蓝色描边 */
+.mf-node-sel > rect,
+.mf-node-sel > polygon,
+.mf-node-sel > circle,
+.mf-node-sel > ellipse,
+.mf-node-sel > path {
+  stroke: var(--mf-accent) !important;
+  stroke-width: 2.5px !important;
+}
+
+/* 悬停：节点背景变浅灰 */
+.mf-node-hover > rect,
+.mf-node-hover > polygon,
+.mf-node-hover > circle,
+.mf-node-hover > ellipse {
+  fill: var(--mf-hover) !important;
+}
+/* 悬停时，连着它的线一起加粗变色 —— 逻辑链条一眼可见 */
+.mf-edge-hl {
+  stroke: var(--mf-accent) !important;
+  stroke-width: 2.5px !important;
+}
+
+/*
+   换位后的闪烁反馈。
+   mermaid 重绘是「瞬间切换」，没有中间过程可做补间动画，
+   所以用一次短促的高亮闪动告诉用户「刚才那下生效了、位置变了」。
+   时长刻意压到 0.42s：位置已经瞬间跳过去了，闪太久反而像卡顿。
+*/
+@keyframes mf-node-flash {
+  0%   { opacity: 1; }
+  25%  { opacity: .35; }
+  60%  { opacity: 1; }
+  80%  { opacity: .6; }
+  100% { opacity: 1; }
+}
+.mf-node-flash {
+  animation: mf-node-flash .42s ease-out 1;
+}
+.mf-node-flash > rect,
+.mf-node-flash > polygon,
+.mf-node-flash > circle,
+.mf-node-flash > ellipse {
+  stroke: var(--mf-accent) !important;
+  stroke-width: 2.5px !important;
+}
+
+/* mermaid 的节点/连线要能接收鼠标事件（改字、右键、悬停都靠它） */
+.mf-unfold svg.flowchart g.node,
+.mf-unfold svg.flowchart path.flowchart-link { pointer-events: auto; }
+.mf-unfold svg.flowchart g.node { cursor: pointer; }
+
+/* ==========================================================================
+   纯代码模式：代码行 ⇄ 图节点 双向高亮联动
+   --------------------------------------------------------------------------
+   textarea 里的「某一行」不是 DOM 元素，没法直接给它加背景，
+   所以用一层**绝对定位的高亮带**铺在文字下面（textarea 背景是透明的，
+   带子能透出来）。带子的 top 按 `12 + 行号 × 22` 算，和 textarea 的
+   `py-3 + leading-[22px]` 严格对齐 —— 这也是 textarea 必须 `wrap="off"`
+   的原因：一旦软换行，逻辑行和视觉行就不再一一对应，带子会整体错位。
+   ========================================================================== */
+
+.mf-code-line { transition: background-color .12s ease; }
+
+/* 悬停（图 → 代码）：浅蓝，150ms 防抖后出现 */
+.mf-code-line-hover { background: rgba(59, 130, 246, 0.1); }
+
+/* 单击选中（图 → 代码）：更深的蓝，持续到点别处 */
+.mf-code-line-sel { background: rgba(59, 130, 246, 0.2); }
+
+/* 行号栏同步染色 + 选中行左侧竖条（和缩进列表的选中样式呼应） */
+.mf-code-gutter-hl { color: #3b82f6; }
+.mf-code-gutter-hl[data-line-state='hover'] { background: rgba(59, 130, 246, 0.1); }
+.mf-code-gutter-hl[data-line-state='sel'] {
+  background: rgba(59, 130, 246, 0.2);
+  box-shadow: inset 2px 0 0 #3b82f6;
+}
+
+/* 反向联动（代码光标 → 图节点）：蓝色描边 + 光晕 */
+.mf-node-code-hl > rect,
+.mf-node-code-hl > polygon,
+.mf-node-code-hl > circle,
+.mf-node-code-hl > ellipse,
+.mf-node-code-hl > path {
+  stroke: #3b82f6 !important;
+  stroke-width: 2px !important;
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.55));
+}
+
+/* 卡片复习模式翻面 */
+.mf-card-flip { perspective: 1400px; }
+.mf-card-inner {
+  transition: transform .5s cubic-bezier(.4, .2, .2, 1);
+  transform-style: preserve-3d;
+  position: relative;
+}
+.mf-card-inner.flipped { transform: rotateY(180deg); }
+.mf-card-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.mf-card-back {
+  transform: rotateY(180deg);
+  position: absolute;
+  inset: 0;
+}
+
+/* 重置熟悉度按钮的闪烁反馈 */
+@keyframes mf-flash {
+  0%, 100% { opacity: 1; }
+  25% { opacity: .25; }
+  50% { opacity: 1; }
+  75% { opacity: .25; }
+}
+.mf-flash { animation: mf-flash .5s ease 2; }
+
+/* 全屏弹窗从折角位置放大铺满，0.2s */
+@keyframes mf-unfold {
+  from { opacity: 0; transform: scale(.06); }
+  to { opacity: 1; transform: scale(1); }
+}
+.mf-unfold {
+  animation: mf-unfold .2s cubic-bezier(.22, .9, .3, 1) both;
+  transform-origin: var(--mf-origin-x, 50%) var(--mf-origin-y, 0%);
+}
+
+@keyframes mf-fade { from { opacity: 0 } to { opacity: 1 } }
+.mf-fade { animation: mf-fade .16s ease both; }
+
+/* 顶部标签栏 / 左侧大纲滑出 */
+.mf-slide-top {
+  transform: translateY(calc(-100% + 6px));
+  transition: transform .22s cubic-bezier(.22, .9, .3, 1);
+}
+.mf-slide-top.open { transform: translateY(0); }
+
+.mf-slide-left {
+  transform: translateX(calc(-100% + 6px));
+  transition: transform .22s cubic-bezier(.22, .9, .3, 1);
+}
+.mf-slide-left.open { transform: translateX(0); }
+
+/* 编辑器出错的整行高亮 */
+.mf-line-error {
+  background: rgba(239, 68, 68, .1);
+  box-shadow: inset 2px 0 0 #ef4444;
+}
+
+@media print {
+  body { background: #fff !important; }
+}

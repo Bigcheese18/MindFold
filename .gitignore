@@ -1,0 +1,34 @@
+node_modules/
+dist/
+# 各轮对比用的临时构建输出（dist-final / dist-lead / dist-print ...）
+dist-*/
+# 临时的 esbuild / 脚本中转目录
+.esb-tmp/
+*.local
+.DS_Store
+
+# ---- 打包相关 ----
+# Rust 编译产物（1.5GB 级别，绝不能进版本库）
+src-tauri/target/
+# Tauri 生成的 schema / 中间文件
+src-tauri/gen/
+
+# 本地下载的构建工具链（Android SDK + JDK21，合计约 1.2GB）
+# 要重新打包 APK 时按 README「打包」一节重新准备即可
+.build/
+
+# Capacitor 的 Android 工程：工程本身要提交（手写配置 + 生成的壳），
+# 但下面这些是构建产物 / 本机路径，不提交：
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/capacitor-cordova-android-plugins/
+android/.idea/
+
+# 签名材料：keystore 与口令**永远不要**提交
+android/*.keystore
+android/keystore.properties
